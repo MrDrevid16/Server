@@ -18,11 +18,6 @@ app.use(cors({
   credentials: true
 }));
 app.use(bodyParser.json());
-app.get('/uploads/:filename', (req, res) => {
-  const filename = req.params.filename;
-  const imagePath = path.join(__dirname, 'uploads', filename);
-  res.sendFile(imagePath);
-});
 
 // Configuración de multer para la subida de archivos
 const storage = multer.diskStorage({
@@ -198,6 +193,12 @@ app.get("/productos", async (req, res) => {
     console.error(error);
     res.status(500).json({ message: "Error al obtener productos" });
   }
+});
+
+app.get('/uploads/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const imagePath = path.join(__dirname, 'uploads', filename);
+  res.sendFile(imagePath);
 });
 
 // Ruta para crear un nuevo producto
