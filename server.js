@@ -12,12 +12,12 @@ import { config } from 'dotenv';
 config();
 // Configura la aplicación Express
 const app = express();
-app.use(express.json());
 app.use(cors({
   origin: ['https://pizzeria-nube.vercel.app/', 'http://localhost:3000/'],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+app.use(express.json());
 app.use(bodyParser.json());
 
 // Configuración de multer para la subida de archivos
