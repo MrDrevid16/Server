@@ -139,6 +139,23 @@ app.get("/usuarios", (req, res) => {
   });
 });
 
+app.get("/usuarios/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const sql = "SELECT nombre, email FROM usuarios WHERE idusuario = ?";
+    const results = await query(sql, [id]);
+
+    if (results.length > 0) {
+      res.json(results[0]);
+    } else {
+      res.status(404).json({ message: "Usuario no encontrado" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error en el servidor" });
+  }
+});
+
 // Nueva ruta para crear un usuario
 app.post("/usuarios", (req, res) => {
   const { nombre, email, password, idrol, telefono, fecha_naci } = req.body;
