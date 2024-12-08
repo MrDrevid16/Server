@@ -9,6 +9,7 @@ import path from "path";
 
 import { config } from 'dotenv';
 config();
+
 // Configura la aplicación Express
 const app = express();
 app.use(express.json());
@@ -63,6 +64,9 @@ db.connect(err => {
   }
 });
 
+// Configuración de la ruta base de las imágenes
+const IMAGE_BASE_URL = process.env.VITE_API_URL || "http://localhost:3000"; 
+
 // Middleware para manejar errores
 app.use((err, req, res, next) => {
   console.error(err);
@@ -90,7 +94,6 @@ app.post("/registro", async (req, res) => {
   }
 });
 
-
 // Ruta de inicio de sesión (Login)
 app.post("/login", async (req, res) => {
   try {
@@ -109,7 +112,6 @@ app.post("/login", async (req, res) => {
     res.status(500).json({ message: "Error en el servidor" });
   }
 });
-
 
 // Nueva ruta para obtener todos los usuarios
 app.get("/usuarios", (req, res) => {
@@ -134,6 +136,7 @@ app.post("/usuarios", (req, res) => {
       res.status(500).json({ message: "Error en el servidor al crear usuario" });
     } else {
       res.status(200).json({ message: "Usuario creado exitosamente" });
+
     }
   });
 });
@@ -179,6 +182,7 @@ app.get("/productos", async (req, res) => {
       values = [idcategoria, idoferta];
     } else if (idcategoria) {
       sql += " WHERE idcategoria = ?";
+
       values = [idcategoria];
     } else if (idoferta) {
       sql += " WHERE idoferta = ?";
@@ -186,7 +190,14 @@ app.get("/productos", async (req, res) => {
     }
 
     const results = await query(sql, values);
-    res.json(results);
+
+    // Construir la URL completa de la imagen
+    const productosConImagen = results.map(producto => ({
+      ...producto,
+      imagen: producto.imagen ? `<span class="math-inline">\{IMAGE\_BASE\_URL\}/uploads/</span>{producto.imagen}` : null
+    }));
+
+    res.json(productosConImagen);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error al obtener productos" });
@@ -206,6 +217,7 @@ app.post("/productos", upload.single('imagen'), async (req, res) => {
   const values = [nombre, descripcion, tamano, precio, idcategoria, idoferta, imagen];
 
   try {
+
     await new Promise((resolve, reject) => {
       db.query(query, values, (err, results) => {
         if (err) {
@@ -233,6 +245,7 @@ app.put('/productos/:id', upload.single('imagen'), (req, res) => {
   if (imagen) {
     query += ', imagen = ?';
     values.push(imagen);
+
   }
 
   query += ' WHERE id_producto = ?';
@@ -269,6 +282,7 @@ app.delete('/productos/:id', (req, res) => {
 
     if (result.affectedRows === 0) {
       res.status(404).json({ error: 'Producto no encontrado' });
+
       return;
     }
 
@@ -287,9 +301,11 @@ app.get("/productos/:id_producto", (req, res) => {
     if (results.length === 0) {
       return res.status(404).json({ error: "Producto no encontrado" });
     }
+
     res.json(results[0]); // Devuelve solo el primer producto encontrado
   });
 });
+
 app.post('/api/resena', (req, res) => {
   const { idusuario, id_producto, calificacion, comentario } = req.body;
 
@@ -313,7 +329,6 @@ app.post('/api/resena', (req, res) => {
     res.status(201).json({ message: 'Reseña creada correctamente' });
   });
 });
-
 
 // Obtener todas las reseñas de un producto, incluyendo el nombre del usuario
 app.get('/api/resenas/:id_producto', (req, res) => {
@@ -363,7 +378,6 @@ app.get("/categoria", (req, res) => {
   });
 });
 
-
 // Ruta para crear una nueva Categoria
 app.post("/categoria", async (req, res) => { //async para permitir el uso de await dentro de esta función, facilitando el manejo de operaciones asincrónicas.
   const { nombre, descripcion, puntos } = req.body;
@@ -377,10 +391,11 @@ if (!nombre || !descripcion || puntos === undefined ) {
   const query = "INSERT INTO categoria (nombre, descripcion, puntos ) VALUES (?, ?, ?)"; //Usa signos de interrogación ? como marcadores de posición para los valores que serán insertados, lo que ayuda a prevenir inyecciones SQL.
   const values = [nombre, descripcion, puntos ]; // Prepara un array values con los valores a insertar, proporcionando null por defecto para descripcion y tamano si no están definidos.
 
-
-  //Usa un bloque try-catch para manejar la ejecución de la consulta SQL.
-  try {  //En el try, crea una nueva Promesa que ejecuta la consulta SQL. Si hay un error (err), la promesa se rechaza (reject(err)). Si la consulta es exitosa, la promesa se resuelve con los resultados (resolve(results)).
-    await new Promise((resolve, reject) => { //Usa await para esperar la resolución de la Promesa antes de continuar.
+//Usa un bloque try-catch para manejar la ejecución de la consulta SQL.
+try {  //En el try, crea una nueva Promesa que ejecuta la consulta SQL.
+  //Si hay un error (err), la promesa se rechaza (reject(err)).
+  //Si la consulta es exitosa, la promesa se resuelve con los resultados (resolve(results)).
+  await new Promise((resolve, reject) => { //Usa await para esperar la resolución de la Promesa antes de continuar.
       db.query(query, values, (err, results) => {
         if (err) {
           return reject(err);
@@ -388,67 +403,65 @@ if (!nombre || !descripcion || puntos === undefined ) {
         resolve(results);
       });
     });
-    res.status(201).json({ message: "Categoria creada exitosamente" }); //Si la Promesa se resuelve correctamente, responde con un estado 201 y un mensaje de éxito en formato JSON.
+    //Si la Promesa se resuelve correctamente, responde con un estado 201 y un mensaje de éxito en formato JSON.
+  res.status(201).json({ message: "Categoria creada exitosamente" });
   } catch (err) {
-    console.error("Error ejecutando la consulta:", err);  //Si ocurre un error durante la ejecución de la consulta, el bloque catch captura el error, lo registra en la consola y responde con un estado 500 y un error en formato json
+    console.error("Error ejecutando la consulta:", err);
+    res.status(500).json({ error: "Error al crear el producto" });
   }
 });
 
-
-// Ruta PUT para actualizar una Categoria
+// Ruta PUT para actualizar una categoria
 app.put('/categoria/:id', (req, res) => {
-  const idcategoria = req.params.id; // Obtener el id del producto de los parámetros de la URL
-  const { nombre, descripcion, puntos } = req.body; // recuperar los datos del cuerpo de la solicitud
-
-  if (puntos === undefined){
-    return res.status(400).json({ error: "El campo 'puntos' es requerido para actualizar la categoría" });
-  }
-
-  const query = 'UPDATE categoria SET nombre = ?, descripcion = ?, puntos = ? WHERE idcategoria = ?'; // Consulta SQL para actualizar un registro
-  const values = [nombre, descripcion, puntos, idcategoria]; // Valores a actualizar en la base de datos
+  const categoria_id = req.params.id;
+  const { nombre, descripcion, puntos } = req.body;
+  const query = 'UPDATE categoria SET nombre = ?, descripcion = ?, puntos = ? WHERE idcategoria = ?';
+  const values = [nombre, descripcion, puntos, categoria_id];
 
   db.query(query, values, (err, result) => {
     if (err) {
-      console.error('Error ejecutando la consulta:', err); // Mensaje de error si la consulta SQL falla
-      res.status(500).json({ error: 'Error al actualizar la categoria' }); // Responder con un error 500 si hay un problema
+      console.error('Error ejecutando la consulta:', err);
+      res.status(500).json({ error: 'Error al actualizar la categoria' });
       return;
     }
 
     if (result.affectedRows === 0) {
-      res.status(404).json({ error: 'categoria no encontrado' }); // Responder con un error 404 si no se encuentra el producto
+      res.status(404).json({ error: 'Categoria no encontrada' });
       return;
     }
 
-    res.json({ message: 'categoria actualizado exitosamente' }); // Responder con un mensaje de éxito si la actualización fue exitosa
+    res.json({ message: 'Categoria actualizada exitosamente' });
   });
 });
 
-// Ruta DELETE para eliminar un categoria
+
+// Ruta DELETE para eliminar una categoria
 app.delete('/categoria/:id', (req, res) => {
-  const idcategoria = req.params.id; // Obtener el id del producto de los parámetros de la URL
-
-  const query = 'DELETE FROM categoria WHERE idcategoria = ?'; // Consulta SQL para eliminar un registro
-  const values = [idcategoria]; // Valor del id del producto a eliminar
+  const categoria_id = req.params.id;
+  const query = 'DELETE FROM categoria WHERE idcategoria = ?';
+  const values = [categoria_id];
 
   db.query(query, values, (err, result) => {
     if (err) {
-      console.error('Error ejecutando la consulta:', err); // Mensaje de error si la consulta SQL falla
-      res.status(500).json({ error: 'Error al eliminar la categoria' }); // Responder con un error 500 si hay un problema
+      console.error('Error ejecutando la consulta:', err);
+      res.status(500).json({ error: 'Error al eliminar la categoria' });
       return;
     }
 
     if (result.affectedRows === 0) {
-      res.status(404).json({ error: 'categoria no encontrada' }); // Responder con un error 404 si no se encuentra el producto
+      res.status(404).json({ error: 'Categoria no encontrada' });
       return;
     }
 
-    res.json({ message: 'categoria eliminada exitosamente' }); // Responder con un mensaje de éxito si la eliminación fue exitosa
+    res.json({ message: 'Categoria eliminada exitosamente' });
   });
 });
-  //PAQUETES
-// Endpoint GET para obtener datos de la base de datos
-app.get("/paquetes", (req, res) => {
-  const query = "SELECT * FROM paquetes"; // Cambia "your_table_name" por el nombre de tu tabla
+
+//RUTA DE NOTIFICACIONES
+
+// Ruta GET notificaciones para obtener datos de la base de datos
+app.get("/notificaciones", (req, res) => {
+  const query = "SELECT * FROM notificaciones";
 
   db.query(query, (err, results) => {
     if (err) {
@@ -456,1072 +469,24 @@ app.get("/paquetes", (req, res) => {
       res.status(500).json({ error: "Error al obtener los datos" });
       return;
     }
-    res.json(results);
-  });
-});
 
-// Ruta para crear un nuevo paquete
-app.post("/paquetes", async (req, res) => { //async para permitir el uso de await dentro de esta función, facilitando el manejo de operaciones asincrónicas.
-  const { nombre, descripcion, categoria, precio, estado } = req.body;
-
-   // Verificar que todos los campos estén presentes y no sean null o undefined
-if (!nombre || !descripcion || !categoria || !precio || !estado) {
-  return res.status(400).json({ error: "Todos los campos (nombre, descripcion, categoria, precio, estado) son requeridos" });
-}
-  
-  //Define la consulta SQL para insertar un nuevo producto en la base de datos. 
-  const query = "INSERT INTO paquetes (nombre, descripcion, categoria, precio, estado) VALUES (?, ?, ?, ?, ?)"; //Usa signos de interrogación ? como marcadores de posición para los valores que serán insertados, lo que ayuda a prevenir inyecciones SQL.
-  const values = [nombre, descripcion, categoria, precio, estado]; // Prepara un array values con los valores a insertar, proporcionando null por defecto para descripcion y tamano si no están definidos.
-
-
-  //Usa un bloque try-catch para manejar la ejecución de la consulta SQL.
-  try {  //En el try, crea una nueva Promesa que ejecuta la consulta SQL. Si hay un error (err), la promesa se rechaza (reject(err)). Si la consulta es exitosa, la promesa se resuelve con los resultados (resolve(results)).
-    await new Promise((resolve, reject) => { //Usa await para esperar la resolución de la Promesa antes de continuar.
-      db.query(query, values, (err, results) => {
-        if (err) {
-          return reject(err);
-        }
-        resolve(results);
-      });
-    });
-    res.status(201).json({ message: "Producto creado exitosamente" }); //Si la Promesa se resuelve correctamente, responde con un estado 201 y un mensaje de éxito en formato JSON.
-  } catch (err) {
-    console.error("Error ejecutando la consulta:", err);  //Si ocurre un error durante la ejecución de la consulta, el bloque catch captura el error, lo registra en la consola y responde con un estado 500 y un error en formato json
-  }
-});
-
-  // Ruta PUT para actualizar un paquete
-  app.put('/paquetes/:id', (req, res) => {
-    const paquetes_id = req.params.id; // Obtener el id del producto de los parámetros de la URL
-    const { nombre, descripcion, categoria, precio, estado } = req.body; // recuperar los datos del cuerpo de la solicitud
-
-    const query = 'UPDATE paquetes SET nombre = ?, descripcion = ?, categoria = ?, precio = ?, estado = ? WHERE id = ?'; // Consulta SQL para actualizar un registro
-    const values = [nombre, descripcion, categoria, precio, estado, paquetes_id]; // Valores a actualizar en la base de datos
-
-    db.query(query, values, (err, result) => {
-      if (err) {
-        console.error('Error ejecutando la consulta:', err); // Mensaje de error si la consulta SQL falla
-        res.status(500).json({ error: 'Error al actualizar el producto' }); // Responder con un error 500 si hay un problema
-        return;
-      }
-
-      if (result.affectedRows === 0) {
-        res.status(404).json({ error: 'paquete no encontrado' }); // Responder con un error 404 si no se encuentra el producto
-        return;
-      }
-
-      res.json({ message: 'paquete actualizado exitosamente' }); // Responder con un mensaje de éxito si la actualización fue exitosa
-    });
-  });
-
-  // Ruta DELETE para eliminar un paquete
-  app.delete('/paquetes/:id', (req, res) => {
-    const paquetes_id = req.params.id; // Obtener el id del producto de los parámetros de la URL
-
-    const query = 'DELETE FROM paquetes WHERE id = ?'; // Consulta SQL para eliminar un registro
-    const values = [paquetes_id]; // Valor del id del producto a eliminar
-
-    db.query(query, values, (err, result) => {
-      if (err) {
-        console.error('Error ejecutando la consulta:', err); // Mensaje de error si la consulta SQL falla
-        res.status(500).json({ error: 'Error al eliminar el paquete' }); // Responder con un error 500 si hay un problema
-        return;
-      }
-
-      if (result.affectedRows === 0) {
-        res.status(404).json({ error: 'Paquete no encontrado' }); // Responder con un error 404 si no se encuentra el producto
-        return;
-      }
-
-      res.json({ message: 'Paquete eliminado exitosamente' }); // Responder con un mensaje de éxito si la eliminación fue exitosa
-    });
-  });
-
-  // Endpoint para crear un nuevo metodo de pago
-app.post("/metpago", async (req, res) => {
-  const { nombre, descripcion } = req.body;
-  if (!nombre || !descripcion) {
-    return res.status(400).json({ error: "Todos los campos (nombre, descripcion) son requeridos" });
-  }
-
-  const query = "INSERT INTO metodo_pago (nombre, descripcion) VALUES (?, ?)";
-  const values = [nombre, descripcion];
-
-  try {
-    await new Promise((resolve, reject) => {
-      db.query(query, values, (err, results) => {
-        if (err) {
-          return reject(err);
-        }
-        resolve(results);
-      });
-    });
-    res.status(201).json({ message: "Metodo de pago creado exitosamente" });
-  } catch (err) {
-    console.error("Error ejecutando la consulta:", err);
-    res.status(500).json({ error: "Error al crear el metodo de pago" });
-  }
-});
-
-// Ruta PUT para actualizar un método de pago
-app.put('/metpago/:id', (req, res) => {
-  const metodoPagoId = req.params.id;
-  const { nombre, descripcion } = req.body;
-
-  const query = 'UPDATE metodo_pago SET nombre = ?, descripcion = ? WHERE id_metpago = ?';
-  const values = [nombre, descripcion, metodoPagoId];
-
-  db.query(query, values, (err, result) => {
-    if (err) {
-      console.error('Error ejecutando la consulta:', err);
-      res.status(500).json({ error: 'Error al actualizar el método de pago' });
-      return;
-    }
-
-    if (result.affectedRows === 0) {
-      res.status(404).json({ error: 'Método de pago no encontrado' });
-      return;
-    }
-
-    res.json({ message: 'Método de pago actualizado exitosamente' });
-  });
-});
-
-// Ruta DELETE para eliminar un método de pago
-app.delete('/metpago/:id', (req, res) => {
-  const metodoPagoId = req.params.id;
-
-  const query = 'DELETE FROM metodo_pago WHERE id_metpago = ?';
-  const values = [metodoPagoId];
-
-  db.query(query, values, (err, result) => {
-    if (err) {
-      console.error('Error ejecutando la consulta:', err);
-      res.status(500).json({ error: 'Error al eliminar el método de pago' });
-      return;
-    }
-
-    if (result.affectedRows === 0) {
-      res.status(404).json({ error: 'Método de pago no encontrado' });
-      return;
-    }
-
-    res.json({ message: 'Método de pago eliminado exitosamente' });
-  });
-});
-
-//Ruta para crear nuevos recibos
-app.post('/api/recibos', (req, res) => {
-  const { id_cliente, fecha, monto_total, concepto, metod_pago, id_pedido, cant_pago, id_estadopago } = req.body;
-  const sql = 'INSERT INTO recibos (id_cliente, fecha, monto_total, concepto, metod_pago, id_pedido, cant_pago, id_estadopago) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
-  db.query(sql, [id_cliente, fecha, monto_total, concepto, metod_pago, id_pedido, cant_pago, id_estadopago], (err, result) => {
-      if (err) {
-          res.status(500).send(err);
-          return;
-      }
-      res.status(201).send({ id: result.insertId, ...req.body });
-  });
-});
-
-//Ruta para leer todos los recibos
-app.get('/api/recibos', (req, res) => {
-  const sql = 'SELECT * FROM recibos';
-  db.query(sql, (err, results) => {
-      if (err) {
-          res.status(500).send(err);
-          return;
-      }
-      res.status(200).send(results);
-  });
-});
-
-//Ruta para actualizar recibo
-app.put('/api/recibos/:id', (req, res) => {
-  const { id_cliente, fecha, monto_total, concepto, metod_pago, id_pedido, cant_pago, id_estadopago } = req.body;
-  const sql = 'UPDATE recibos SET id_cliente = ?, fecha = ?, monto_total = ?, concepto = ?, metod_pago = ?, id_pedido = ?, cant_pago = ?, id_estadopago = ? WHERE id_recibo = ?';
-  db.query(sql, [id_cliente, fecha, monto_total, concepto, metod_pago, id_pedido, cant_pago, id_estadopago, req.params.id], (err, result) => {
-      if (err) {
-          res.status(500).send(err);
-          return;
-      }
-      res.status(200).send({ id: req.params.id, ...req.body });
-  });
-});
-
-//Ruta para eliminar recibo
-app.delete('/api/recibos/:id', (req, res) => {
-  const sql = 'DELETE FROM recibos WHERE id_recibo = ?';
-  db.query(sql, [req.params.id], (err, result) => {
-      if (err) {
-          res.status(500).send(err);
-          return;
-      }
-      res.status(200).send({ message: 'Recibo eliminado' });
-  });
-});
-
-// Ruta para crear nueva compra con múltiples productos
-app.post('/api/compras', async (req, res) => {
-  try {
-    const { productos, idusuario } = req.body;
-
-    if (!productos || !Array.isArray(productos) || productos.length === 0 || !idusuario) {
-      return res.status(400).json({ 
-        error: 'Se requiere al menos un producto y el ID de usuario para realizar la compra' 
-      });
-    }
-
-    const values = productos.map(producto => [
-      new Date(),
-      producto.nombre,
-      producto.cantidad,
-      producto.total_compra, // Este ya viene con el descuento aplicado
-      producto.imagen,
-      idusuario,
-      producto.idcategoria
-    ]);
-
-    const sql = 'INSERT INTO compras (fecha_compra, nombre_producto, cantidad, total_compra, imagen, idusuario, idcategoria) VALUES ?';
-    
-    await query(sql, [values]);
-    res.status(201).json({ 
-      message: 'Compra realizada exitosamente',
-      productos: productos 
-    });
-  } catch (error) {
-    console.error('Error al realizar la compra:', error);
-    res.status(500).json({ 
-      error: 'Error al realizar la compra', 
-      details: error.message 
-    });
-  }
-});
-
-// Nueva ruta para obtener todos las compras
-app.get("/compras", (req, res) => {
-  const query = `
-    SELECT compras.*, usuarios.nombre AS nombre_usuario, categoria.nombre AS nombre_categoria
-    FROM compras
-    JOIN usuarios ON compras.idusuario = usuarios.idusuario
-    JOIN categoria ON compras.idcategoria = categoria.idcategoria
-  `;
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ message: "Error en el servidor" });
-    } else {
-      res.status(200).json(results);
-    }
-  });
-});
-
-// Ruta para obtener las compras de un usuario específico
-app.get('/api/compras/:idusuario', (req, res) => {
-  const sql = 'SELECT * FROM compras WHERE idusuario = ? ORDER BY fecha_compra DESC';
-  db.query(sql, [req.params.idusuario], (err, results) => {
-    if (err) {
-      res.status(500).send(err);
-      return;
-    }
-    res.status(200).send(results);
-  });
-});
-
-//Ruta para actualizar la compra
-app.put('/api/compras/:id', (req, res) => {
-  const { id_compra, fecha_compra, nombre_producto, cantidad, precio, total_compra, categoria_producto } = req.body;
-  const sql = 'UPDATE compras SET id_compra = ?, fecha_compra = ?, nombre_producto = ?, cantidad = ?, precio = ?, total_compra = ?, categoria_producto = ?, WHERE id_compra = ?';
-  db.query(sql, [id_compra, fecha_compra, nombre_producto, cantidad, precio, total_compra, categoria_producto], (err, result) => {
-      if (err) {
-          res.status(500).send(err);
-          return;
-      }
-      res.status(200).send({ id: req.params.id, ...req.body });
-  });
-});
-
-//Ruta para eliminar compra
-app.delete('/api/compras/:id', (req, res) => {
-  const sql = 'DELETE FROM compras WHERE id_compras = ?';
-  db.query(sql, [req.params.id], (err, result) => {
-      if (err) {
-          res.status(500).send(err);
-          return;
-      }
-      res.status(200).send({ message: 'Compra eliminada' });
-  });
-});
-
-// Ruta para agregar al carrito o actualizar si ya existe
-app.post("/api/carrito/agregar", async (req, res) => {
-  try {
-    const { idproducto, nombre, cantidad, total, imagen, idusuario, idcategoria } = req.body;
-
-    // Verificar usuario existente
-    const userExists = await query("SELECT idusuario FROM usuarios WHERE idusuario = ?", [idusuario]);
-    if (userExists.length === 0) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
-    }
-
-    // Verificar si el producto ya está en el carrito
-    const existingProduct = await query(
-      "SELECT * FROM carrito WHERE idproducto = ? AND idusuario = ?",
-      [idproducto, idusuario]
-    );
-
-    if (existingProduct.length > 0) {
-      // Actualizar cantidad y total
-      const nuevaCantidad = existingProduct[0].cantidad + cantidad;
-      await query(
-        "UPDATE carrito SET cantidad = ?, total = ? WHERE idproducto = ? AND idusuario = ?",
-        [nuevaCantidad, total, idproducto, idusuario]
-      );
-    } else {
-      // Insertar nuevo producto
-      await query(
-        "INSERT INTO carrito (idproducto, nombre, cantidad, total, imagen, idusuario, idcategoria) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [idproducto, nombre, cantidad, total, imagen, idusuario, idcategoria]
-      );
-    }
-
-    res.json({ message: "Producto agregado al carrito correctamente" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error al agregar al carrito" });
-  }
-});
-
-
-// Ruta para obtener el carrito de un usuario
-app.get("/api/carrito/:idusuario", async (req, res) => {
-  try {
-    const { idusuario } = req.params;
-    const results = await query("SELECT * FROM carrito WHERE idusuario = ?", [idusuario]);
-    res.json(results);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error al obtener el carrito" });
-  }
-});
-
-// Ruta para actualizar el carrito (PUT)
-app.put('/api/carrito/:idproducto', async (req, res) => {
-  try {
-    const { idproducto } = req.params;
-    const { cantidad, idusuario, total } = req.body;
-
-    // Actualizar carrito con el total recibido que ya incluye el descuento
-    await query(
-      'UPDATE carrito SET cantidad = ?, total = ? WHERE idproducto = ? AND idusuario = ?',
-      [cantidad, total, idproducto, idusuario]
-    );
-
-    res.json({ 
-      message: 'Producto actualizado en el carrito',
-      total
-    });
-  } catch (error) {
-    console.error('Error al actualizar producto en el carrito:', error);
-    res.status(500).json({ message: 'Error interno al actualizar producto en el carrito' });
-  }
-});
-
-// Ruta para eliminar un producto del carrito
-app.delete('/api/carrito/:idproducto', (req, res) => {
-  const { idproducto } = req.params;
-  const { idusuario } = req.body;
-
-  const deleteQuery = `DELETE FROM carrito WHERE idproducto = ? AND idusuario = ?`;
-  db.query(deleteQuery, [idproducto, idusuario], (error, results) => {
-    if (error) {
-      console.error('Error al eliminar producto del carrito:', error);
-      return res.status(500).json({ message: 'Error interno al eliminar producto del carrito' });
-    }
-
-    res.json({ message: 'Producto eliminado del carrito' });
-  });
-});
-
-// Nueva ruta para vaciar el carrito
-app.delete('/api/carrito/vaciar/:idusuario', (req, res) => {
-  const sql = 'DELETE FROM carrito WHERE idusuario = ?';
-  db.query(sql, [req.params.idusuario], (err, result) => {
-    if (err) {
-      res.status(500).json({ error: 'Error al vaciar el carrito', details: err.message });
-      return;
-    }
-    res.status(200).json({ message: 'Carrito vaciado exitosamente' });
-  });
-});
-
-//Ruta para crear un cupon
-
-app.post('/api/cupones', (req, res) => {
-  const { idcupon, nom_cupon, descripcion, descuento, inicio, expiracion, activo } = req.body;
-  const sql = 'INSERT INTO cupones (idcupon, nom_cupon, descripcion, descuento, inicio, expiracion, activo) VALUES (?, ?, ?, ?, ?, ?, ?)';
-  
-  db.query(sql, [idcupon, nom_cupon, descripcion, descuento, inicio, expiracion, activo], (err, result) => {
-      if (err) {
-          res.status(500).send(err);
-          return;
-      }
-      res.status(201).send({ id: result.insertId, ...req.body });
-  });
-});
-
-//Ruta para actualizar un cupon
-app.put('/api/cupones/:idcupon', (req, res) => {
-  const { nom_cupon, descripcion, descuento, inicio, expiracion, activo } = req.body; // No incluyas cuponid aquí
-  const sql = 'UPDATE cupones SET nom_cupon = ?, descripcion = ?, descuento = ?, inicio = ?, expiracion = ?, activo = ? WHERE idcupon = ?';
-  
-  db.query(sql, [nom_cupon, descripcion, descuento, inicio, expiracion, activo, req.params.idcupon], (err, result) => {
-      if (err) {
-          res.status(500).send(err);
-          return;
-      }
-      res.status(200).send({ id: req.params.idcupon, ...req.body });
-  });
-});
-
-//Ruta para leer todos los cupones
-app.get('/api/cupones', (req, res) => {
-  const sql = 'SELECT * FROM cupones';
-  
-  db.query(sql, (err, results) => {
-      if (err) {
-          res.status(500).send(err);
-          return;
-      }
-      res.status(200).send(results);
-  });
-});
-
-
-app.delete('/api/cupones/:idcupon', (req, res) => {
-  const sql = 'DELETE FROM cupones WHERE idcupon = ?';
-  
-  db.query(sql, [req.params.idcupon], (err, result) => {
-      if (err) {
-          res.status(500).send(err);
-          return;
-      }
-      res.status(200).send({ message: 'Cupon eliminada' });
-  });
-});
-
-app.use(router);
-
-app.get('/api/cupones-activos', (req, res) => {
-  const sql = `
-    SELECT 
-      idcupon,
-      nom_cupon,
-      descripcion as description,
-      descuento as discount,
-      DATE_FORMAT(inicio, '%Y-%m-%d') as inicio,
-      DATE_FORMAT(expiracion, '%Y-%m-%d') as expiration,
-      activo,
-      CASE 
-        WHEN CAST(descuento AS SIGNED) >= 50 THEN 'bg-orange-500'
-        WHEN CAST(descuento AS SIGNED) >= 30 THEN 'bg-blue-500'
-        ELSE 'bg-green-500'
-      END as bgColor
-    FROM cupones 
-    WHERE activo = 1 
-    AND expiracion > CURDATE()`;
-
-  db.query(sql, (err, results) => {
-    if (err) {
-      console.error('Error en la consulta SQL:', err);
-      return res.status(500).json({ error: 'Error interno del servidor', details: err.message });
-    }
-
-    try {
-      console.log('Resultados de la consulta:', results);
-      const formattedResults = results.map(coupon => ({
-        idcupon: coupon.idcupon,
-        nom_cupon: coupon.nom_cupon,
-        description: coupon.description,
-        discount: coupon.discount,
-        expiration: coupon.expiration,
-        activo: coupon.activo,
-        bgColor: coupon.bgColor,
-        img: '/assets/img/cuponImagen1.png'
-      }));
-
-      console.log('Resultados formateados:', formattedResults);
-      res.status(200).json(formattedResults);
-    } catch (error) {
-      console.error('Error al procesar los resultados:', error);
-      res.status(500).json({ error: 'Error al procesar los datos', details: error.message });
-    }
-  });
-});
-
-// Ruta para cupones disponibles
-app.get('/api/cupones-disponibles/:userId', async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const sql = `
-      SELECT c.*, 
-             IFNULL(uc.usado, 0) as usado
-      FROM cupones c
-      LEFT JOIN usuarios_cupones uc ON c.idcupon = uc.idcupon 
-        AND uc.idusuario = ?
-      WHERE c.activo = 1 
-        AND c.expiracion >= CURDATE()
-        AND (uc.usado IS NULL OR uc.usado = 0)
-    `;
-    
-    const cupones = await query(sql, [userId]);
-    res.json(cupones);
-  } catch (error) {
-    console.error('Error al obtener cupones disponibles:', error);
-    res.status(500).json({ 
-      message: 'Error al obtener cupones disponibles',
-      error: error.message 
-    });
-  }
-});
-
-app.get('/api/cupones-activos', async (req, res) => {
-  try {
-    const sql = `
-      SELECT 
-        idcupon,
-        nom_cupon,
-        descripcion as description,
-        descuento as discount,
-        DATE_FORMAT(inicio, '%Y-%m-%d') as inicio,
-        DATE_FORMAT(expiracion, '%Y-%m-%d') as expiration,
-        activo,
-        CASE 
-          WHEN CAST(descuento AS SIGNED) >= 50 THEN 'bg-orange-500'
-          WHEN CAST(descuento AS SIGNED) >= 30 THEN 'bg-blue-500'
-          ELSE 'bg-green-500'
-        END as bgColor
-      FROM cupones 
-      WHERE activo = 1 
-      AND expiracion > CURDATE()
-    `;
-    
-    const results = await query(sql);
-    const formattedResults = results.map(coupon => ({
-      ...coupon,
-      img: '/assets/img/cuponImagen1.png'
+    // Construir la URL completa de la imagen
+    const notificacionesConImagen = results.map(notificacion => ({
+      ...notificacion,
+      imagen: notificacion.imagen ? `<span class="math-inline">\{IMAGE\_BASE\_URL\}/uploads/</span>{notificacion.imagen}` : null
     }));
-    
-    res.json(formattedResults);
-  } catch (error) {
-    console.error('Error en la consulta de cupones activos:', error);
-    res.status(500).json({ 
-      error: 'Error interno del servidor', 
-      details: error.message 
-    });
-  }
-});
 
-app.post('/usar-cupon', async (req, res) => {
-  try {
-    const { idcupon, idusuario } = req.body;
-    
-    // Verificar si ya existe una relación usuario-cupón
-    const existingRelation = await query(
-      'SELECT * FROM usuarios_cupones WHERE idcupon = ? AND idusuario = ?',
-      [idcupon, idusuario]
-    );
-
-    if (existingRelation.length > 0) {
-      await query(
-        'UPDATE usuarios_cupones SET usado = 1 WHERE idcupon = ? AND idusuario = ?',
-        [idcupon, idusuario]
-      );
-    } else {
-      await query(
-        'INSERT INTO usuarios_cupones (idcupon, idusuario, usado) VALUES (?, ?, 1)',
-        [idcupon, idusuario]
-      );
-    }
-
-    res.json({ success: true, message: 'Cupón aplicado correctamente' });
-  } catch (error) {
-    console.error('Error al usar el cupón:', error);
-    res.status(500).json({ 
-      message: 'Error al aplicar el cupón',
-      error: error.message 
-    });
-  }
-});
-
-// Ruta para obtener todas las ofertas
-app.get("/ofertas", (req, res) => {
-  const query = "SELECT * FROM ofertas";
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ message: "Error en el servidor" });
-    } else {
-      res.status(200).json(results);
-    }
+    res.json(notificacionesConImagen);
   });
 });
 
-// Ruta para crear una oferta
-app.post("/ofertas", (req, res) => {
-  const { nombre, inicio, expiracion, descuento, activo } = req.body;
-  const query = "INSERT INTO ofertas (nombre, inicio, expiracion, descuento, activo) VALUES (?, ?, ?, ?, ?)";
-  db.query(query, [nombre, inicio, expiracion, descuento, activo], (err, results) => {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ message: "Error en el servidor al crear oferta" });
-    } else {
-      res.status(201).json({ message: "Oferta creada exitosamente", id: results.insertId });
-    }
-  });
-});
-
-// Ruta para actualizar una oferta
-app.put("/ofertas/:id", (req, res) => {
-  const { id } = req.params;
-  const { nombre, inicio, expiracion, descuento, activo } = req.body;
-  const query = "UPDATE ofertas SET nombre = ?, inicio = ?, expiracion = ?, descuento = ?, activo = ? WHERE idoferta = ?";
-  db.query(query, [nombre, inicio, expiracion, descuento, activo, id], (err, results) => {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ message: "Error en el servidor" });
-    } else {
-      res.status(200).json({ message: "Oferta actualizada exitosamente" });
-    }
-  });
-});
-
-// Ruta para eliminar una oferta
-app.delete("/ofertas/:id", (req, res) => {
-  const { id } = req.params;
-  const query = "DELETE FROM ofertas WHERE idoferta = ?";
-  db.query(query, [id], (err, results) => {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ message: "Error en el servidor" });
-    } else {
-      res.status(200).json({ message: "Oferta eliminada exitosamente" });
-    }
-  });
-});
-
-// Ruta para crear una membresía de PepperPoints para un usuario
-app.post('/api/pepperpoints', (req, res) => {
-  const { id_usuario, num_tarjeta } = req.body;
-  const fechaActualizacion = new Date();
-
-  const query = `INSERT INTO pepperpoints (id_usuario, total_puntos, fecha_actualizacion, num_tarjeta)
-                 VALUES (?, 0, ?, ?)`;
-
-  db.query(query, [id_usuario, fechaActualizacion, num_tarjeta], (err, result) => {
-    if (err) {
-      console.error('Error al crear la membresía de PepperPoints:', err);
-      return res.status(500).json({ message: 'Error al crear la membresía de PepperPoints' });
-    }
-    res.status(201).json({ message: 'Membresía de PepperPoints creada con éxito' });
-  });
-});
-
-// Ruta para obtener los PepperPoints de un usuario
-app.get('/api/pepperpoints/:id_usuario', (req, res) => {
-  const { id_usuario } = req.params;
-
-  const query = `SELECT * FROM pepperpoints WHERE id_usuario = ?`;
-  db.query(query, [id_usuario], (err, results) => {
-    if (err) {
-      console.error('Error al obtener los PepperPoints:', err);
-      return res.status(500).json({ message: 'Error al obtener los PepperPoints' });
-    }
-    res.status(200).json(results[0]); // Devuelve los datos del usuario
-  });
-});
-
-// Ruta para actualizar los PepperPoints de un usuario
-app.put('/api/pepperpoints/:id_usuario', (req, res) => {
-  const { id_usuario } = req.params;
-  const { puntos } = req.body;
-  const fechaActualizacion = new Date();
-
-  const query = `UPDATE pepperpoints SET total_puntos = total_puntos + ?, fecha_actualizacion = ? WHERE id_usuario = ?`;
-  db.query(query, [puntos, fechaActualizacion, id_usuario], (err, result) => {
-    if (err) {
-      console.error('Error al actualizar los PepperPoints:', err);
-      return res.status(500).json({ message: 'Error al actualizar los PepperPoints' });
-    }
-    res.status(200).json({ message: 'PepperPoints actualizados con éxito' });
-  });
-});
-
-// Ruta para eliminar la membresía de PepperPoints de un usuario
-app.delete('/api/pepperpoints/:id_usuario', (req, res) => {
-  const { id_usuario } = req.params;
-
-  const query = `DELETE FROM pepperpoints WHERE id_usuario = ?`;
-  db.query(query, [id_usuario], (err, result) => {
-    if (err) {
-      console.error('Error al eliminar la membresía de PepperPoints:', err);
-      return res.status(500).json({ message: 'Error al eliminar la membresía de PepperPoints' });
-    }
-    res.status(200).json({ message: 'Membresía de PepperPoints eliminada con éxito' });
-  });
-});
-
-app.post('/api/pepperpoints/activar', (req, res) => {
-  const { id_usuario } = req.body;
-
-  if (!id_usuario) {
-    return res.status(400).json({ message: 'Se requiere un ID de usuario' });
-  }
-
-  // Crear un número de tarjeta virtual único (puedes generar uno al azar o con una lógica específica)
-  const num_tarjeta = 'PP' + Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
-
-  const insertQuery = `
-    INSERT INTO pepperpoints (id_usuario, total_puntos, fecha_actualizacion, num_tarjeta)
-    VALUES (?, 0, NOW(), ?)
-  `;
-
-  db.query(insertQuery, [id_usuario, num_tarjeta], (err, results) => {
-    if (err) {
-      console.error('Error al activar la membresía:', err);
-      return res.status(500).json({ message: 'Error al activar la membresía' });
-    }
-
-    res.status(201).json({ message: 'Membresía PepperPoints activada con éxito', num_tarjeta });
-  });
-});
-
-// Ruta para canjear una pizza con PepperPoints
-app.post('/api/pepperpoints/canjear', (req, res) => {
-  const { idusuario, idproducto } = req.body;
-
-  if (!idusuario || !idproducto) {
-    return res.status(400).json({ error: 'Se requiere el ID de usuario y el ID del producto para canjear' });
-  }
-
-  // Primero, verificar si el producto es canjeable y los puntos necesarios
-  const productoQuery = `
-    SELECT p.id_producto, c.puntos_requeridos 
-    FROM productos p 
-    JOIN canjeables c ON p.id_producto = c.id_producto 
-    WHERE p.id_producto = ? AND c.activo = 1
-  `;
-
-  db.query(productoQuery, [idproducto], (err, productoResult) => {
-    if (err) {
-      console.error('Error al obtener el producto canjeable:', err);
-      return res.status(500).json({ error: 'Error al obtener el producto canjeable' });
-    }
-
-    if (productoResult.length === 0) {
-      return res.status(404).json({ error: 'Producto no disponible para canjear' });
-    }
-
-    const puntosRequeridos = productoResult[0].puntos_requeridos;
-
-    // Luego, obtener los puntos actuales del usuario
-    const puntosQuery = 'SELECT total_puntos FROM pepperpoints WHERE id_usuario = ?';
-
-    db.query(puntosQuery, [idusuario], (err, puntosResult) => {
-      if (err) {
-        console.error('Error al obtener los puntos del usuario:', err);
-        return res.status(500).json({ error: 'Error al obtener los puntos del usuario' });
-      }
-
-      if (puntosResult.length === 0 || puntosResult[0].total_puntos < puntosRequeridos) {
-        return res.status(400).json({ error: 'Puntos insuficientes para canjear este producto' });
-      }
-
-      // Actualizar los puntos del usuario
-      const actualizarPuntosQuery = `
-        UPDATE pepperpoints 
-        SET total_puntos = total_puntos - ?, fecha_actualizacion = NOW() 
-        WHERE id_usuario = ?
-      `;
-
-      db.query(actualizarPuntosQuery, [puntosRequeridos, idusuario], (err, updateResult) => {
-        if (err) {
-          console.error('Error al actualizar los puntos del usuario:', err);
-          return res.status(500).json({ error: 'Error al actualizar los puntos del usuario' });
-        }
-
-        res.status(200).json({ message: 'Producto canjeado exitosamente', producto: productoResult[0] });
-      });
-    });
-  });
-});
-
-// Ruta para crear un producto canjeable
-app.post('/api/canjeables', (req, res) => {
-  const { id_producto, puntos_requeridos, activo } = req.body;
-
-  // Verificar si el producto ya existe en la tabla de canjeables
-  const checkProductQuery = 'SELECT * FROM canjeables WHERE id_producto = ?';
-  db.query(checkProductQuery, [id_producto], (err, results) => {
-    if (err) {
-      console.error('Error al verificar producto:', err);
-      return res.status(500).json({ message: 'Error interno al verificar producto' });
-    }
-
-    if (results.length > 0) {
-      // Si el producto ya existe, actualizar los puntos requeridos y el estado
-      const updateQuery = 'UPDATE canjeables SET puntos_requeridos = ?, activo = ? WHERE id_producto = ?';
-      db.query(updateQuery, [puntos_requeridos, activo, id_producto], (err, updateResults) => {
-        if (err) {
-          console.error('Error al actualizar producto canjeable:', err);
-          return res.status(500).json({ message: 'Error interno al actualizar producto canjeable' });
-        }
-        res.status(200).json({ message: 'Producto canjeable actualizado correctamente' });
-      });
-    } else {
-      // Si el producto no existe, agregarlo a la tabla de canjeables
-      const insertQuery = 'INSERT INTO canjeables (id_producto, puntos_requeridos, activo) VALUES (?, ?, ?)';
-      db.query(insertQuery, [id_producto, puntos_requeridos, activo], (err, results) => {
-        if (err) {
-          console.error('Error al agregar producto canjeable:', err);
-          return res.status(500).json({ message: 'Error interno al agregar producto canjeable' });
-        }
-        res.status(201).json({ message: 'Producto canjeable agregado correctamente' });
-      });
-    }
-  });
-});
-
-// Ruta para obtener todos los productos canjeables
-app.get('/api/canjeables', (req, res) => {
-  const query = 'SELECT * FROM canjeables';
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('Error al obtener productos canjeables:', err);
-      return res.status(500).json({ message: 'Error interno al obtener productos canjeables' });
-    }
-    res.status(200).json(results);
-  });
-});
-
-// Ruta para eliminar un producto canjeable
-app.delete('/api/canjeables/:id', (req, res) => {
-  const { id } = req.params;
-
-  const deleteQuery = 'DELETE FROM canjeables WHERE id_canjeable = ?';
-  db.query(deleteQuery, [id], (err, results) => {
-    if (err) {
-      console.error('Error al eliminar producto canjeable:', err);
-      return res.status(500).json({ message: 'Error interno al eliminar producto canjeable' });
-    }
-    res.status(200).json({ message: 'Producto canjeable eliminado correctamente' });
-  });
-});
-
-// Ruta para actualizar un producto canjeable
-app.put('/api/canjeables/:id', (req, res) => {
-  const { id } = req.params;
-  const { puntos_requeridos, activo } = req.body;
-
-  const updateQuery = 'UPDATE canjeables SET puntos_requeridos = ?, activo = ? WHERE id_canjeable = ?';
-  db.query(updateQuery, [puntos_requeridos, activo, id], (err, results) => {
-    if (err) {
-      console.error('Error al actualizar producto canjeable:', err);
-      return res.status(500).json({ message: 'Error interno al actualizar producto canjeable' });
-    }
-    res.status(200).json({ message: 'Producto canjeable actualizado correctamente' });
-  });
-});
-
-// Ruta para obtener los productos disponibles para canjear (solo los que están activos)
-app.get('/api/canjeables/disponibles', (req, res) => {
-  const query = `
-    SELECT productos.*, canjeables.puntos_requeridos 
-    FROM productos 
-    JOIN canjeables ON productos.id_producto = canjeables.id_producto 
-    WHERE canjeables.activo = 1
-  `;
-
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error('Error al obtener productos canjeables:', err);
-      return res.status(500).json({ message: 'Error interno al obtener productos canjeables' });
-    }
-    res.status(200).json(results);
-  });
-});
-
-
-// AQUI EMPIEZA RUTAS DE SEGUIMIENTE Y CREACION DE ORDENES
-
-// RUTA QUE MANEJA LA LOGICA DE ORDENES ACTIVAS
-// Endpoint para crear una nueva orden
-app.post("/api/ordenes", (req, res) => {
-  const { idusuario, total, estado, metodopago, direccionentrega, telefonocontacto } = req.body;
-
-  // Validar que los datos necesarios estén presentes
-  if (!idusuario || !total || !estado || !metodopago || !direccionentrega || !telefonocontacto) {
-      return res.status(400).json({ message: 'Faltan datos obligatorios.' });
-  }
-
-  try {
-      // Formatear la fecha correctamente para MySQL
-      const ahora = new Date();
-      const fechaFormateada = ahora.toISOString().slice(0, 19).replace('T', ' ');
-
-      // Inserción en la tabla de órdenes
-      db.query(
-          'INSERT INTO ordenes (idusuario, total, estado, metodopago, direccionentrega, telefonocontacto, fecha, hora) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          [idusuario, total, estado, metodopago, direccionentrega, telefonocontacto, fechaFormateada, fechaFormateada],
-          (error, resultados) => {
-              if (error) {
-                  console.error('Error al crear la orden:', error);
-                  return res.status(500).json({ message: 'Error al crear la orden' });
-              }
-
-              const ordenId = resultados.insertId;
-              return res.status(201).json({ message: 'Orden creada con éxito', idorden: ordenId });
-          }
-      );
-  } catch (error) {
-      console.error(error);
-      return res.status(500).json({ message: 'Error al crear la orden' });
-  }
-});
-
-// Obtener los detalles de una orden por ID
-app.get('/api/ordenes/:idorden', (req, res) => {
-  const { idorden } = req.params;
-
-  // Validar que idorden es un número
-  if (!Number.isInteger(parseInt(idorden))) {
-      return res.status(400).json({ message: 'ID de orden no válido' });
-  }
-
-  // Consulta para recuperar la orden
-  db.query('SELECT * FROM ordenes WHERE idorden = ?', [idorden], (error, resultados) => {
-      if (error) {
-          console.error('Error al recuperar la orden:', error);
-          return res.status(500).json({ message: 'Error al recuperar la orden' });
-      }
-
-      // Si no se encontró la orden
-      if (resultados.length === 0) {
-          return res.status(404).json({ message: 'Orden no encontrada' });
-      }
-
-      // Retornar la orden encontrada
-      return res.status(200).json(resultados[0]);
-  });
-})
-
-// ENDPOINT DE LISTADO DE ORDENES DEL USUARIO
-app.get('/api/ordenes', (req, res) => {
-  const { userId } = req.query;
-
-  // Validar que se haya proporcionado el ID de usuario
-  if (!userId) {
-    return res.status(400).json({ message: 'El ID de usuario es obligatorio' });
-  }
-
-  // Consulta a la base de datos
-  db.query('SELECT * FROM ordenes WHERE idusuario = ?', [userId], (error, resultados) => {
-    if (error) {
-      console.error('Error al obtener las órdenes:', error);
-      return res.status(500).json({ message: 'Error al obtener las órdenes' });
-    }
-
-    // Verificar si hay resultados
-    if (resultados.length === 0) {
-      return res.status(404).json({ message: 'No tienes órdenes registradas.' });
-    }
-
-    // Devolver las órdenes encontradas
-    res.json(resultados);
-  });
-}); 
-
-//RUTA PARA ACTUALIZAR LAS ETAPAS DE LA PIZZA
-
-app.patch('/api/ordenes/:id', async (req, res) => {
-  const { id } = req.params;
-  const { estado } = req.body;
-
-  try {
-      // Verifica que el estado sea uno válido
-      const estadosValidos = ['Orden creada', 'Pedido recibido','En preparación', 'Listo para recoger en tienda', 'Entregado'];
-      if (!estadosValidos.includes(estado)) {
-          return res.status(400).json({ message: 'Estado no válido' });
-      }
-
-      // Actualiza la orden en la base de datos
-      const [result] = await db.promise().query('UPDATE ordenes SET estado = ? WHERE idorden = ?', [estado, id]);
-
-      if (result.affectedRows === 0) {
-          return res.status(404).json({ message: 'Orden no encontrada' });
-      }
-
-      res.json({ message: 'Estado de la orden actualizado', estado });
-  } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Error al actualizar el estado de la orden' });
-  }
-});
-
-app.delete("/api/ordenes/:id", (req, res) => {
-  const { id } = req.params;
-  const query = "DELETE FROM ordenes WHERE idorden = ?";
-
-  // Usamos db.query con un callback de estilo tradicional
-  db.query(query, [id], (err, results) => {
-    if (err) {
-      console.error("Error al eliminar la orden:", err);
-      res.status(500).json({ message: "Error al eliminar la orden" });
-    } else if (results.affectedRows === 0) {
-      // Si no se eliminó ninguna fila, la orden no existía
-      res.status(404).json({ message: "Orden no encontrada" });
-    } else {
-      res.status(200).json({ message: "Orden eliminada exitosamente" });
-    }
-  });
-});
-
-app.get('/api/admin/ordenes', (req, res) => {
-  // Aquí va el código para recuperar las órdenes de la base de datos
-  db.query('SELECT * FROM ordenes', (error, resultados) => {
-    if (error) {
-      console.error('Error al obtener las órdenes:', error);
-      return res.status(500).json({ message: 'Hubo un error al obtener las órdenes' });
-    }
-
-    if (resultados.length === 0) {
-      return res.status(404).json({ message: 'No hay órdenes disponibles.' });
-    }
-
-    // Enviar las órdenes en formato JSON
-    res.status(200).json(resultados);
-  });
-});
-
-// Ruta para obtener todas las notificaciones
-app.get("/notificaciones", (req, res) => {
-  const query = "SELECT * FROM notificaciones";
-  db.query(query, (err, results) => {
-    if (err) {
-      console.error(err);
-      res.status(500).json({ message: "Error en el servidor" });
-    } else {
-      res.status(200).json(results);
-    }
-  });
-});
-
-// Ruta para crear una nueva notificación
+// Ruta para crear una nueva notificacion
 app.post("/notificaciones", upload.single('imagen'), async (req, res) => {
   const { nombre } = req.body;
   const imagen = req.file ? req.file.filename : null;
 
   if (!nombre) {
-    return res.status(400).json({ error: "El nombre es requerido" });
+    return res.status(400).json({ error: "El nombre de la notificación es requerido" });
   }
 
   const query = "INSERT INTO notificaciones (nombre, imagen) VALUES (?, ?)";
@@ -1599,13 +564,535 @@ app.delete('/notificaciones/:id', (req, res) => {
   });
 });
 
+//RUTA DE ORDENES
 
+app.get("/ordenes", async (req, res) => {
+  try {
+    const { idusuario } = req.query;
+    let sql = "SELECT * FROM ordenes";
+    let values = [];
 
+    if (idusuario) {
+      sql += " WHERE idusuario = ?";
+      values = [idusuario];
+    }
 
-app.use(router);
+    const results = await query(sql, values);
+    res.json(results);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al obtener ordenes" });
+  }
+});
 
-// Inicia el servidor
-const PORT = 3000;
-app.listen(PORT, () => {
-  console.log(`Servidor en funcionamiento en http://localhost:${PORT}`);
+// Ruta para crear una nueva orden
+app.post("/ordenes", async (req, res) => {
+  const { idusuario, fecha_orden, estado, total, tipo_pago, detalle_orden } = req.body;
+
+  try {
+    // Iniciar una transacción
+    await query("START TRANSACTION");
+
+    // Insertar la orden en la tabla 'ordenes'
+    const resultOrden = await query(
+      "INSERT INTO ordenes (idusuario, fecha_orden, estado, total, tipo_pago) VALUES (?, ?, ?, ?, ?)",
+      [idusuario, fecha_orden, estado, total, tipo_pago]
+    );
+    const idorden = resultOrden.insertId;
+
+    // Insertar los detalles de la orden en la tabla 'detalle_orden'
+    for (const item of detalle_orden) {
+      await query(
+        "INSERT INTO detalle_orden (idorden, id_producto, cantidad, precio_unitario) VALUES (?, ?, ?, ?)",
+        [idorden, item.id_producto, item.cantidad, item.precio_unitario]
+      );
+    }
+
+    // Confirmar la transacción
+    await query("COMMIT");
+
+    res.status(201).json({ message: "Orden creada exitosamente" });
+  } catch (error) {
+    // Revertir la transacción en caso de error
+    await query("ROLLBACK");
+    console.error(error);
+    res.status(500).json({ error: "Error al crear la orden" });
+  }
+});
+
+// Ruta PUT para actualizar una orden
+app.put('/ordenes/:id', (req, res) => {
+  const orden_id = req.params.id;
+  const { estado, tipo_pago, total } = req.body;
+  const query = 'UPDATE ordenes SET estado = ?, tipo_pago = ?, total = ? WHERE idorden = ?';
+  const values = [estado, tipo_pago, total, orden_id];
+
+  db.query(query, values, (err, result) => {
+    if (err) {
+      console.error('Error ejecutando la consulta:', err);
+      res.status(500).json({ error: 'Error al actualizar la orden' });
+      return;
+    }
+
+    if (result.affectedRows === 0) {
+      res.status(404).json({ error: 'Orden no encontrada' });
+      return;
+    }
+
+    res.json({ message: 'Orden actualizada exitosamente' });
+  });
+});
+
+// Ruta DELETE para eliminar una orden
+app.delete('/ordenes/:id', (req, res) => {
+  const orden_id = req.params.id;
+  const query = 'DELETE FROM ordenes WHERE idorden = ?';
+  const values = [orden_id];
+
+  db.query(query, values, (err, result) => {
+    if (err) {
+      console.error('Error ejecutando la consulta:', err);
+      res.status(500).json({ error: 'Error al eliminar la orden' });
+      return;
+    }
+
+    if (result.affectedRows === 0) {
+      res.status(404).json({ error: 'Orden no encontrada' });
+      return;
+    }
+
+    res.json({ message: 'Orden eliminada exitosamente' });
+  });
+});
+
+//RUTA DE DETALLE DE ORDENES
+
+app.get("/detalle_orden", async (req, res) => {
+  try {
+    const { idorden } = req.query;
+    let sql = "SELECT * FROM detalle_orden";
+    let values = [];
+
+    if (idorden) {
+      sql += " WHERE idorden = ?";
+      values = [idorden];
+    }
+
+    const results = await query(sql, values);
+    res.json(results);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al obtener detalle de ordenes" });
+  }
+});
+
+// Ruta para crear un nuevo detalle de orden
+app.post("/detalle_orden", async (req, res) => {
+  const { idorden, id_producto, cantidad, precio_unitario } = req.body;
+
+  try {
+    const result = await query(
+      "INSERT INTO detalle_orden (idorden, id_producto, cantidad, precio_unitario) VALUES (?, ?, ?, ?)",
+      [idorden, id_producto, cantidad, precio_unitario]
+    );
+    res.status(201).json({ message: "Detalle de orden creado exitosamente" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error al crear el detalle de la orden" });
+  }
+});
+
+// Ruta PUT para actualizar un detalle de orden
+app.put('/detalle_orden/:id', (req, res) => {
+  const detalle_orden_id = req.params.id;
+  const { idorden, id_producto, cantidad, precio_unitario } = req.body;
+  const query = 'UPDATE detalle_orden SET idorden = ?, id_producto = ?, cantidad = ?, precio_unitario = ? WHERE iddetalle_orden = ?';
+  const values = [idorden, id_producto, cantidad, precio_unitario, detalle_orden_id];
+
+  db.query(query, values, (err, result) => {
+    if (err) {
+      console.error('Error ejecutando la consulta:', err);
+      res.status(500).json({ error: 'Error al actualizar el detalle de orden' });
+      return;
+    }
+
+    if (result.affectedRows === 0) {
+      res.status(404).json({ error: 'Detalle de orden no encontrado' });
+      return;
+    }
+
+    res.json({ message: 'Detalle de orden actualizado exitosamente' });
+  });
+});
+
+// Ruta DELETE para eliminar un detalle de orden
+app.delete('/detalle_orden/:id', (req, res) => {
+  const detalle_orden_id = req.params.id;
+  const query = 'DELETE FROM detalle_orden WHERE iddetalle_orden = ?';
+  const values = [detalle_orden_id];
+
+  db.query(query, values, (err, result) => {
+    if (err) {
+      console.error('Error ejecutando la consulta:', err);
+      res.status(500).json({ error: 'Error al eliminar el detalle de orden' });
+      return;
+    }
+
+    if (result.affectedRows === 0) {
+      res.status(404).json({ error: 'Detalle de orden no encontrado' });
+      return;
+    }
+
+    res.json({ message: 'Detalle de orden eliminado exitosamente' });
+  });
+});
+
+//RUTA DE CANJEABLES
+
+app.get("/canjeables", async (req, res) => {
+  try {
+    const { id_canjeable } = req.query;
+    let sql = "SELECT * FROM canjeables";
+    let values = [];
+
+    if (id_canjeable) {
+      sql += " WHERE id_canjeable = ?";
+      values = [id_canjeable];
+    }
+
+    const results = await query(sql, values);
+
+    // Construir la URL completa de la imagen
+    const canjeablesConImagen = results.map(canjeable => ({
+      ...canjeable,
+      imagen: canjeable.imagen ? `<span class="math-inline">\{IMAGE\_BASE\_URL\}/uploads/</span>{canjeable.imagen}` : null
+    }));
+
+    res.json(canjeablesConImagen);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al obtener canjeables" });
+  }
+});
+
+// Ruta para crear un nuevo canjeable
+app.post("/canjeables", upload.single('imagen'), async (req, res) => {
+  const { nombre, descripcion, costo_puntos } = req.body;
+  const imagen = req.file ? req.file.filename : null;
+
+  try {
+    const result = await query(
+      "INSERT INTO canjeables (nombre, descripcion, costo_puntos, imagen) VALUES (?, ?, ?, ?)",
+      [nombre, descripcion, costo_puntos, imagen]
+    );
+    res.status(201).json({ message: "Canjeable creado exitosamente" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error al crear el canjeable" });
+  }
+});
+
+// Ruta PUT para actualizar un canjeable
+app.put('/canjeables/:id', upload.single('imagen'), (req, res) => {
+  const canjeable_id = req.params.id;
+  const { nombre, descripcion, costo_puntos } = req.body;
+  const imagen = req.file ? req.file.filename : null;
+
+  let query = 'UPDATE canjeables SET nombre = ?, descripcion = ?, costo_puntos = ?';
+  let values = [nombre, descripcion, costo_puntos];
+
+  if (imagen) {
+    query += ', imagen = ?';
+    values.push(imagen);
+  }
+
+  query += ' WHERE id_canjeable = ?';
+  values.push(canjeable_id);
+
+  db.query(query, values, (err, result) => {
+    if (err) {
+      console.error('Error ejecutando la consulta:', err);
+      res.status(500).json({ error: 'Error al actualizar el canjeable' });
+      return;
+    }
+
+    if (result.affectedRows === 0) {
+      res.status(404).json({ error: 'Canjeable no encontrado' });
+      return;
+    }
+
+    res.json({ message: 'Canjeable actualizado exitosamente' });
+  });
+});
+
+// Ruta DELETE para eliminar un canjeable
+app.delete('/canjeables/:id', (req, res) => {
+  const canjeable_id = req.params.id;
+  const query = 'DELETE FROM canjeables WHERE id_canjeable = ?';
+  const values = [canjeable_id];
+
+  db.query(query, values, (err, result) => {
+    if (err) {
+      console.error('Error ejecutando la consulta:', err);
+      res.status(500).json({ error: 'Error al eliminar el canjeable' });
+      return;
+    }
+
+    if (result.affectedRows === 0) {
+      res.status(404).json({ error: 'Canjeable no encontrado' });
+      return;
+    }
+
+    res.json({ message: 'Canjeable eliminado exitosamente' });
+  });
+});
+
+//RUTA DE CUPONES
+
+app.get("/cupones", async (req, res) => {
+  try {
+    const { idcupon } = req.query;
+    let sql = "SELECT * FROM cupones";
+    let values = [];
+
+    if (idcupon) {
+      sql += " WHERE idcupon = ?";
+      values = [idcupon];
+    }
+
+    const results = await query(sql, values);
+    res.json(results);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al obtener cupones" });
+  }
+});
+
+// Ruta para crear un nuevo cupon
+app.post("/cupones", async (req, res) => {
+  const { nombre, descripcion, descuento, fecha_inicio, fecha_fin } = req.body;
+
+  try {
+    const result = await query(
+      "INSERT INTO cupones (nombre, descripcion, descuento, fecha_inicio, fecha_fin) VALUES (?, ?, ?, ?, ?)",
+      [nombre, descripcion, descuento, fecha_inicio, fecha_fin]
+    );
+    res.status(201).json({ message: "Cupón creado exitosamente" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error al crear el cupón" });
+  }
+});
+
+// Ruta PUT para actualizar un cupon
+app.put('/cupones/:id', (req, res) => {
+  const cupon_id = req.params.id;
+  const { nombre, descripcion, descuento, fecha_inicio, fecha_fin } = req.body;
+  const query = 'UPDATE cupones SET nombre = ?, descripcion = ?, descuento = ?, fecha_inicio = ?, fecha_fin = ? WHERE idcupon = ?';
+  const values = [nombre, descripcion, descuento, fecha_inicio, fecha_fin, cupon_id];
+
+  db.query(query, values, (err, result) => {
+    if (err) {
+      console.error('Error ejecutando la consulta:', err);
+      res.status(500).json({ error: 'Error al actualizar el cupon' });
+      return;
+    }
+
+    if (result.affectedRows === 0) {
+      res.status(404).json({ error: 'Cupón no encontrado' });
+      return;
+    }
+
+    res.json({ message: 'Cupón actualizado exitosamente' });
+  });
+});
+
+// Ruta DELETE para eliminar un cupon
+app.delete('/cupones/:id', (req, res) => {
+  const cupon_id = req.params.id;
+  const query = 'DELETE FROM cupones WHERE idcupon = ?';
+  const values = [cupon_id];
+
+  db.query(query, values, (err, result) => {
+    if (err) {
+      console.error('Error ejecutando la consulta:', err);
+      res.status(500).json({ error: 'Error al eliminar el cupon' });
+      return;
+    }
+
+    if (result.affectedRows === 0) {
+      res.status(404).json({ error: 'Cupón no encontrado' });
+      return;
+    }
+
+    res.json({ message: 'Cupón eliminado exitosamente' });
+  });
+});
+
+//RUTA DE OFERTAS
+
+app.get("/ofertas", async (req, res) => {
+  try {
+    const { idoferta } = req.query;
+    let sql = "SELECT * FROM ofertas";
+    let values = [];
+
+    if (idoferta) {
+      sql += " WHERE idoferta = ?";
+      values = [idoferta];
+    }
+
+    const results = await query(sql, values);
+    res.json(results);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al obtener ofertas" });
+  }
+});
+
+// Ruta para crear una nueva oferta
+app.post("/ofertas", async (req, res) => {
+  const { nombre, descripcion, descuento, fecha_inicio, fecha_fin } = req.body;
+
+  try {
+    const result = await query(
+      "INSERT INTO ofertas (nombre, descripcion, descuento, fecha_inicio, fecha_fin) VALUES (?, ?, ?, ?, ?)",
+      [nombre, descripcion, descuento, fecha_inicio, fecha_fin]
+    );
+    res.status(201).json({ message: "Oferta creada exitosamente" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error al crear la oferta" });
+  }
+});
+
+// Ruta PUT para actualizar una oferta
+app.put('/ofertas/:id', (req, res) => {
+  const oferta_id = req.params.id;
+  const { nombre, descripcion, descuento, fecha_inicio, fecha_fin } = req.body;
+  const query = 'UPDATE ofertas SET nombre = ?, descripcion = ?, descuento = ?, fecha_inicio = ?, fecha_fin = ? WHERE idoferta = ?';
+  const values = [nombre, descripcion, descuento, fecha_inicio, fecha_fin, oferta_id];
+
+  db.query(query, values, (err, result) => {
+    if (err) {
+      console.error('Error ejecutando la consulta:', err);
+      res.status(500).json({ error: 'Error al actualizar la oferta' });
+      return;
+    }
+
+    if (result.affectedRows === 0) {
+      res.status(404).json({ error: 'Oferta no encontrada' });
+      return;
+    }
+
+    res.json({ message: 'Oferta actualizada exitosamente' });
+  });
+});
+
+// Ruta DELETE para eliminar una oferta
+app.delete('/ofertas/:id', (req, res) => {
+  const oferta_id = req.params.id;
+  const query = 'DELETE FROM ofertas WHERE idoferta = ?';
+  const values = [oferta_id];
+
+  db.query(query, values, (err, result) => {
+    if (err) {
+      console.error('Error ejecutando la consulta:', err);
+      res.status(500).json({ error: 'Error al eliminar la oferta' });
+      return;
+    }
+
+    if (result.affectedRows === 0) {
+      res.status(404).json({ error: 'Oferta no encontrada' });
+      return;
+    }
+
+    res.json({ message: 'Oferta eliminada exitosamente' });
+  });
+});
+
+//RUTA DE PEPPER POINTS
+
+app.get("/pepper_points", async (req, res) => {
+  try {
+    const { id_pepper } = req.query;
+    let sql = "SELECT * FROM pepper_points";
+    let values = [];
+
+    if (id_pepper) {
+      sql += " WHERE id_pepper = ?";
+      values = [id_pepper];
+    }
+
+    const results = await query(sql, values);
+    res.json(results);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al obtener pepper points" });
+  }
+});
+
+// Ruta para crear un nuevo pepper point
+app.post("/pepper_points", async (req, res) => {
+  const { idusuario, puntos_actuales, puntos_gastados, puntos_totales } = req.body;
+
+  try {
+    const result = await query(
+      "INSERT INTO pepper_points (idusuario, puntos_actuales, puntos_gastados, puntos_totales) VALUES (?, ?, ?, ?)",
+      [idusuario, puntos_actuales, puntos_gastados, puntos_totales]
+    );
+    res.status(201).json({ message: "Pepper point creado exitosamente" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error al crear el pepper point" });
+  }
+});
+
+// Ruta PUT para actualizar un pepper point
+app.put('/pepper_points/:id', (req, res) => {
+  const pepper_point_id = req.params.id;
+  const { idusuario, puntos_actuales, puntos_gastados, puntos_totales } = req.body;
+  const query = 'UPDATE pepper_points SET idusuario = ?, puntos_actuales = ?, puntos_gastados = ?, puntos_totales = ? WHERE id_pepper = ?';
+  const values = [idusuario, puntos_actuales, puntos_gastados, puntos_totales, pepper_point_id];
+
+  db.query(query, values, (err, result) => {
+    if (err) {
+      console.error('Error ejecutando la consulta:', err);
+      res.status(500).json({ error: 'Error al actualizar el pepper point' });
+      return;
+    }
+
+    if (result.affectedRows === 0) {
+      res.status(404).json({ error: 'Pepper point no encontrado' });
+      return;
+    }
+
+    res.json({ message: 'Pepper point actualizado exitosamente' });
+  });
+});
+
+// Ruta DELETE para eliminar un pepper point
+app.delete('/pepper_points/:id', (req, res) => {
+  const pepper_point_id = req.params.id;
+  const query = 'DELETE FROM pepper_points WHERE id_pepper = ?';
+  const values = [pepper_point_id];
+
+  db.query(query, values, (err, result) => {
+    if (err) {
+      console.error('Error ejecutando la consulta:', err);
+      res.status(500).json({ error: 'Error al eliminar el pepper point' });
+      return;
+    }
+
+    if (result.affectedRows === 0) {
+      res.status(404).json({ error: 'Pepper point no encontrado' });
+      return;
+    }
+
+    res.json({ message: 'Pepper point eliminado exitosamente' });
+  });
+});
+
+app.listen(3000, () => {
+  console.log("Servidor iniciado en el puerto 3000");
 });
