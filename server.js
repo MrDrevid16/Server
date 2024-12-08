@@ -18,7 +18,6 @@ app.use(cors({
   credentials: true
 }));
 app.use(bodyParser.json());
-app.use(express.static('public'));
 
 // Configuración de multer para la subida de archivos
 const storage = multer.diskStorage({
