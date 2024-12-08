@@ -6,6 +6,7 @@ import cors from "cors";
 import bodyParser from "body-parser";
 import multer from "multer";
 import path from "path";
+import { fileURLToPath } from 'url';
 
 import { config } from 'dotenv';
 config();
@@ -192,6 +193,8 @@ app.get("/productos", async (req, res) => {
     res.status(500).json({ message: "Error al obtener productos" });
   }
 });
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 app.get('/uploads/:filename', (req, res) => {
   const filename = req.params.filename;
