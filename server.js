@@ -18,7 +18,11 @@ app.use(cors({
   credentials: true
 }));
 app.use(bodyParser.json());
-app.use('../uploads', express.static('uploads'));
+app.get('/uploads/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const imagePath = path.join(__dirname, 'uploads', filename);
+  res.sendFile(imagePath);
+});
 
 // Configuración de multer para la subida de archivos
 const storage = multer.diskStorage({
@@ -175,6 +179,8 @@ app.get("/productos", async (req, res) => {
     let sql = "SELECT * FROM productos";
     let values = [];
 
+    console.log('Productos obtenidos:', results); // Agrega este registro de consola
+
     if (idcategoria && idoferta) {
       sql += " WHERE idcategoria = ? AND idoferta = ?";
       values = [idcategoria, idoferta];
@@ -198,6 +204,8 @@ app.get("/productos", async (req, res) => {
 app.post("/productos", upload.single('imagen'), async (req, res) => {
   const { nombre, descripcion, tamano, precio, idcategoria, idoferta } = req.body;
   const imagen = req.file ? req.file.filename : null;
+
+  console.log('Imagen cargada:', imagen); // Agrega este registro de consola
 
   if (!nombre || !descripcion || !tamano || !precio || !idcategoria) {
     return res.status(400).json({ error: "Todos los campos son requeridos" });
