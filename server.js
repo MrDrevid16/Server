@@ -13,11 +13,25 @@ config();
 // Configura la aplicación Express
 const app = express();
 app.use(express.json());
+// Configuración CORS global
 app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true
+  origin: ['https://pizzeria-nube.vercel.app/', 'http://localhost:3000/'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  preflightContinue: true,
+  optionsSuccessStatus: 204
 }));
+
+// Middleware para asegurar headers CORS en todas las respuestas
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Credentials', true);
+  if (req.method === 'OPTIONS') {
+    return res.status(204).send();
+  }
+  next();
+});
 app.use(bodyParser.json());
 
 // Configuración de multer para la subida de archivos
