@@ -961,7 +961,7 @@ app.get('/api/cupones-disponibles/:idusuario', async (req, res) => {
     const cuponesDisponibles = cupones.map(cupon => {
       const usos = usosCupones.find(uso => uso.idcupon === cupon.idcupon)?.usos || 0;
       const limiteUsos = cupon.descuento <= 10 ? 3 : 1;
-      const disponible = usos < limiteUsos;
+      const disponible = usos < limiteUsos && cupon.expiracion >= new Date(); // Agregar verificación de expiración
       return { ...cupon, usos, disponible };
     });
 
