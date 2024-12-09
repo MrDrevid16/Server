@@ -986,7 +986,7 @@ app.get('/api/cupones-activos', (req, res) => {
         expiration: coupon.expiration,
         activo: coupon.activo,
         bgColor: coupon.bgColor,
-        img: '/assets/img/cuponImagen1.png'
+        img: '../assets/img/cuponImagen1.png'
       }));
 
       console.log('Resultados formateados:', formattedResults);
@@ -1048,7 +1048,7 @@ app.get('/api/cupones-activos', async (req, res) => {
     const results = await query(sql);
     const formattedResults = results.map(coupon => ({
       ...coupon,
-      img: '/assets/img/cuponImagen1.png'
+      img: '../assets/img/cuponImagen1.png'
     }));
     
     res.json(formattedResults);
