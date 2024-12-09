@@ -951,79 +951,28 @@ app.delete('/api/cupones/:idcupon', (req, res) => {
 
 app.use(router);
 
-app.get('/api/cupones-activos', (req, res) => {
-  const sql = `
-    SELECT 
-      idcupon,
-      nom_cupon,
-      descripcion as description,
-      descuento as discount,
-      DATE_FORMAT(inicio, '%Y-%m-%d') as inicio,
-      DATE_FORMAT(expiracion, '%Y-%m-%d') as expiration,
-      activo,
-      CASE 
-        WHEN CAST(descuento AS SIGNED) >= 50 THEN 'bg-orange-500'
-        WHEN CAST(descuento AS SIGNED) >= 30 THEN 'bg-blue-500'
-        ELSE 'bg-green-500'
-      END as bgColor
-    FROM cupones 
-    WHERE activo = 1 
-    AND expiracion > CURDATE()`;
-
-  db.query(sql, (err, results) => {
-    if (err) {
-      console.error('Error en la consulta SQL:', err);
-      return res.status(500).json({ error: 'Error interno del servidor', details: err.message });
-    }
-
-    try {
-      console.log('Resultados de la consulta:', results);
-      const formattedResults = results.map(coupon => ({
-        idcupon: coupon.idcupon,
-        nom_cupon: coupon.nom_cupon,
-        description: coupon.description,
-        discount: coupon.discount,
-        expiration: coupon.expiration,
-        activo: coupon.activo,
-        bgColor: coupon.bgColor,
-        img: '/assets/img/cuponImagen1.png'
-      }));
-
-      console.log('Resultados formateados:', formattedResults);
-      res.status(200).json(formattedResults);
-    } catch (error) {
-      console.error('Error al procesar los resultados:', error);
-      res.status(500).json({ error: 'Error al procesar los datos', details: error.message });
-    }
-  });
-});
-
-// Ruta para cupones disponibles
-app.get('/api/cupones-disponibles/:userId', async (req, res) => {
+// Obtener cupones disponibles para un usuario
+app.get('/api/cupones-disponibles/:idusuario', async (req, res) => {
+  const { idusuario } = req.params;
   try {
-    const userId = req.params.userId;
-    const sql = `
-      SELECT c.*, 
-             IFNULL(uc.usado, 0) as usado
-      FROM cupones c
-      LEFT JOIN usuarios_cupones uc ON c.idcupon = uc.idcupon 
-        AND uc.idusuario = ?
-      WHERE c.activo = 1 
-        AND c.expiracion >= CURDATE()
-        AND (uc.usado IS NULL OR uc.usado = 0)
-    `;
-    
-    const cupones = await query(sql, [userId]);
-    res.json(cupones);
+    const cupones = await query('SELECT * FROM cupones WHERE activo = 1 AND expiracion > CURDATE()');
+    const usosCupones = await query('SELECT idcupon, COUNT(*) AS usos FROM usuarios_cupones WHERE idusuario = ? GROUP BY idcupon', [idusuario]);
+
+    const cuponesDisponibles = cupones.map(cupon => {
+      const usos = usosCupones.find(uso => uso.idcupon === cupon.idcupon)?.usos || 0;
+      const limiteUsos = cupon.descuento <= 10 ? 3 : 1;
+      const disponible = usos < limiteUsos;
+      return { ...cupon, usos, disponible };
+    });
+
+    res.json(cuponesDisponibles);
   } catch (error) {
     console.error('Error al obtener cupones disponibles:', error);
-    res.status(500).json({ 
-      message: 'Error al obtener cupones disponibles',
-      error: error.message 
-    });
+    res.status(500).json({ error: 'Error al obtener cupones disponibles' });
   }
 });
 
+// Obtener cupones activos (combinando las dos rutas redundantes)
 app.get('/api/cupones-activos', async (req, res) => {
   try {
     const sql = `
@@ -1048,7 +997,7 @@ app.get('/api/cupones-activos', async (req, res) => {
     const results = await query(sql);
     const formattedResults = results.map(coupon => ({
       ...coupon,
-      img: '/assets/img/cuponImagen1.png'
+      img: '/assets/img/cuponImagen1.png' // Asegúrate de que esta ruta sea correcta
     }));
     
     res.json(formattedResults);
@@ -1061,29 +1010,47 @@ app.get('/api/cupones-activos', async (req, res) => {
   }
 });
 
+// Usar un cupón (modificada para registrar el uso)
 app.post('/usar-cupon', async (req, res) => {
   try {
     const { idcupon, idusuario } = req.body;
-    
-    // Verificar si ya existe una relación usuario-cupón
-    const existingRelation = await query(
-      'SELECT * FROM usuarios_cupones WHERE idcupon = ? AND idusuario = ?',
-      [idcupon, idusuario]
-    );
 
-    if (existingRelation.length > 0) {
-      await query(
-        'UPDATE usuarios_cupones SET usado = 1 WHERE idcupon = ? AND idusuario = ?',
-        [idcupon, idusuario]
-      );
-    } else {
-      await query(
-        'INSERT INTO usuarios_cupones (idcupon, idusuario, usado) VALUES (?, ?, 1)',
-        [idcupon, idusuario]
-      );
+    // Verificar si el cupón existe
+    const cupon = await query('SELECT * FROM cupones WHERE idcupon = ?', [idcupon]);
+    if (cupon.length === 0) {
+      return res.status(404).json({ message: 'Cupón no encontrado' });
     }
 
-    res.json({ success: true, message: 'Cupón aplicado correctamente' });
+    // Verificar si el cupón ya ha sido usado por el usuario el número máximo de veces
+    const usos = await query('SELECT COUNT(*) AS count FROM usuarios_cupones WHERE idusuario = ? AND idcupon = ?', [idusuario, idcupon]);
+    const limiteUsos = cupon[0].descuento <= 10 ? 3 : 1;
+    if (usos[0].count >= limiteUsos) {
+      return res.status(400).json({ message: 'Ya has alcanzado el límite de usos para este cupón' });
+    }
+
+    // Verificar si el cupón está dentro de las fechas válidas
+    const fechaActual = new Date();
+    if (fechaActual < cupon[0].fecha_inicio || fechaActual > cupon[0].fecha_fin) {
+      return res.status(400).json({ message: 'Cupón no válido o expirado' });
+    }
+
+    // Insertar un nuevo registro en la tabla usuarios_cupones
+    const insertResult = await query(
+      'INSERT INTO usuarios_cupones (idusuario, idcupon, fecha_uso) VALUES (?, ?, NOW())',
+      [idusuario, idcupon]
+    );
+
+    if (insertResult.affectedRows === 1) {
+      // El registro se insertó correctamente
+      res.json({ success: true, message: 'Cupón aplicado correctamente' });
+    } else {
+      // Hubo un error al insertar el registro
+      console.error('Error al insertar en usuarios_cupones');
+      res.status(500).json({ 
+        message: 'Error al aplicar el cupón',
+        error: 'Error al registrar el uso del cupón' 
+      });
+    }
   } catch (error) {
     console.error('Error al usar el cupón:', error);
     res.status(500).json({ 
